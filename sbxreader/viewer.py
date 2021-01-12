@@ -15,6 +15,9 @@ except Exception as err:
     call('pip install opencv-python pyqtgraph pyqt5',shell = True)
     import cv2
 
+import pyqtgraph as pg
+pg.setConfigOptions(imageAxisOrder='row-major')
+
 # Qt imports
 from PyQt5.QtWidgets import (QWidget,
                              QApplication,
@@ -47,7 +50,7 @@ from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 def registration_upsample(frame,template):
     h,w = frame.shape
     dst = frame.astype('float32')
-    (xs, ys), sf = cv2.phaseCorrelate(template.astype('float32'),dst)    
+    (xs, ys), sf = cv2.phaseCorrelate(template.astype('float32'),dst)
     return (ys,xs)
 
 
@@ -65,7 +68,8 @@ class ScanboxViewer(QMainWindow):
         self.app = app
         self.filename = fname
         self.mmap = sbx_memmap(self.filename)
-        (nframes,nplanes,nchan,W,H) = self.mmap.shape
+        
+        nframes,nplanes,nchans,W,H = self.mmap.shape
         self.nplanes = nplanes
         self.nframes = nframes
         self.initUI()
@@ -73,26 +77,21 @@ class ScanboxViewer(QMainWindow):
     def initUI(self):
         # Menu
         bar = self.menuBar()
+        editmenu = bar.addMenu("Experiment")
+        editmenu.addAction("New")
         #editmenu.triggered[QAction].connect(self.experimentMenuTrigger)
         self.setWindowTitle("Scanbox viewer")
         self.tabs = []
         self.widgets = []
         self.tabs.append(QDockWidget("Imaging plane",self))
-        c = 0
-        layout = QVBoxLayout()
         self.widgets.append(ImageViewerWidget(self,self.mmap))
         self.tabs[-1].setWidget(self.widgets[-1])
         self.tabs[-1].setFloating(False)
-        self.tabs[-1].setFixedWidth(self.mmap.shape[3])
-        self.tabs[-1].setFixedHeight(self.mmap.shape[4])
-        if c < 2:
-            self.addDockWidget(
-                Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
-                self.tabs[-1])
-        else:
-            self.addDockWidget(
-                Qt.RightDockWidgetArea and Qt.BottomDockWidgetArea,
-                self.tabs[-1])
+        #self.tabs[-1].setFixedWidth(self.mmap.shape[3])
+        #self.tabs[-1].setFixedHeight(self.mmap.shape[4])
+        self.addDockWidget(
+            Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
+            self.tabs[-1])
         c = 1
         self.controlWidget = ControlWidget(self)
         self.tabs.append(QDockWidget("Frame control",self))
@@ -101,7 +100,7 @@ class ScanboxViewer(QMainWindow):
         self.addDockWidget(Qt.TopDockWidgetArea,self.tabs[-1])
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
-        self.timer.start(0.03)
+        self.timer.start(0.01)
         self.move(0, 0)
         self.show()
     def timerUpdate(self):
@@ -116,7 +115,7 @@ class ControlWidget(QWidget):
         self.frameSlider = QSlider(Qt.Horizontal)
         self.frameSlider.setValue(0)
         self.frameSlider.setMinimum(0)
-        self.frameSlider.setMaximum(self.parent.mmap.shape[-1]/self.parent.nplanes)
+        self.frameSlider.setMaximum(self.parent.mmap.shape[0])
         self.frameSlider.setSingleStep(1)
         self.frameSliderLabel = QLabel('Frame [{0}]:'.format(self.frameSlider.value()))
         self.frameSlider.valueChanged.connect(self.setFrame)
@@ -132,6 +131,7 @@ class ControlWidget(QWidget):
         form.addRow(QLabel("Register: "),self.register)
 
     def setFrame(self,value):
+        self.frameSliderLabel.setText('Frame [{0}]:'.format(int(value)))
         self.parent.widgets[0].update(int(value))
 
     def setPlane(self,value):
@@ -151,8 +151,7 @@ class ImageViewerWidget(QWidget):
     def __init__(self,parent,sbxdata,parameters = dict(backgroundSubtract=False)):
         super(ImageViewerWidget,self).__init__()
         self.sbxdata = sbxdata
-        frame = np.array(self.sbxdata[0,:,0,:,:])
-        print(frame.shape)
+        frame = self.sbxdata[0,:,0,:,:].squeeze()
         self.nplanes = parent.nplanes
         self.string = '# {0}'
         self.stringShift = '# {0} - shift ({1:1.1f},{2:1.1f})'
@@ -160,48 +159,47 @@ class ImageViewerWidget(QWidget):
         toggleSubtract = QAction("Background subtraction",self)
         toggleSubtract.triggered.connect(self.toggleSubtract)
         self.addAction(toggleSubtract)
-        self.scene=QGraphicsScene(0,0,frame.shape[-1],
-                                  frame.shape[-2],self)
-        self.view = QGraphicsView(self.scene, self)
+        self.win = pg.GraphicsLayoutWidget()
+        grid = QFormLayout()
+        grid.addRow(self.win)
+        self.setLayout(grid)
+        p1 = self.win.addPlot(title="")
+        p1.getViewBox().invertY(True)
+        p1.hideAxis('left')
+        p1.hideAxis('bottom')
+        nplanes,H,W = frame.shape
+        positions = [[int(np.mod(i,2))*W,
+                      int(i/2)*H] for i in range(self.nplanes)]
+        self.imgview = [pg.ImageItem() for i in range(self.nplanes)]
+        for p,img in zip(positions,self.imgview):
+            img.setPos(*p)
+
+        for img in self.imgview:
+            p1.addItem(img)
+        
         self.plane = 0
         self.register = False
         self.references = [None for iplane in range(self.nplanes)]
-        self.update(1)
+        self.update(0)
         self.show()
     def update(self,nframe):
-        self.scene.clear()
-        i = int(nframe)
-        image = np.array(np.squeeze(self.sbxdata[i,:,0,:,:]))
-        frame = 255 - cv2.convertScaleAbs(image, alpha=(255.0/65535.0))
+        stack = np.array(self.sbxdata[nframe,:,0,:,:]).astype(np.float32)
         if self.register:
-            if self.references[self.plane] is None and not nframe == 0:
-                stack = self.sbxdata[:400,::self.nplanes,0].mean(axis = 0)
-                self.references[self.plane] = 255 - cv2.convertScaleAbs(
-                    stack.T,
-                    alpha=(255.0/65535.0))
-            shift,_,_ = registration_upsample(
-                self.references[self.plane][200:-200:2,200:-200:1],
-                frame[200:-200:2,200:-200:1],
-                upsample_factor=2)
-            frame = shift_image(frame,shift)
-        frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-        if self.register:
-            cv2.putText(frame,self.stringShift.format(i,
-                                                      shift[0],
-                                                      shift[1]),
-                        (10,100),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1, [200,0,0],2)
-        else:
-            cv2.putText(frame,self.string.format(i), (10,100),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1, [200,0,0],2)
-
-        self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
-                             frame.strides[0], QImage.Format_RGB888)
-        self.scene.addPixmap(QPixmap.fromImage(self.qimage))
+            for iplane in range(self.nplanes):
+                if self.references[iplane] is None:
+                    self.references[iplane] = 2**16 - np.squeeze(
+                        self.sbxdata[:256,iplane,0,:,:].mean(axis = 0))
+                shift = registration_upsample(
+                    self.references[iplane][200:-200:2,200:-200:1],
+                    stack[iplane][200:-200:2,200:-200:1])
+                stack[iplane] = shift_image(stack[iplane],shift)
+                if iplane == 0:
+                    # set the shift value 
+                    pass
+            
+        for iplane in range(self.nplanes):
+            self.imgview[iplane].setImage(stack[iplane])
         self.lastnFrame = nframe
-        self.scene.update()
     def toggleSubtract(self):
         pass
 
