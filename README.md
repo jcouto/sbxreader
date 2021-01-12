@@ -14,8 +14,14 @@ dat = sbx_memmap(`filename.sbx`)
 # NFRAMES x NPLANES x NCHANNELS x HEIGHT x WIDTH
 # To access frames treat it like a numpy array
 # but create a new array when getting the frame:
-
 first20frames = np.array(dat[:20])
+
+# access metadata as a dictionary
+print(dat.metadata)
+
+# number of invalid columns when recording in bidirectional mode
+print(dat.ndeadcols)
+
 ```
 
 ### Get metadata from the file

@@ -17,7 +17,7 @@ setup(
     description = (longdescription),
     long_description = longdescription,
     license = 'GPL',
-    install_requires = requirements,
+    install_requires = ['scipy'],
     url = "https://github.com/jcouto/sbxreader",
     packages = ['sbxreader'],
     entry_points = {
