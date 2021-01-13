@@ -115,7 +115,7 @@ class ControlWidget(QWidget):
         self.frameSlider = QSlider(Qt.Horizontal)
         self.frameSlider.setValue(0)
         self.frameSlider.setMinimum(0)
-        self.frameSlider.setMaximum(self.parent.mmap.shape[0])
+        self.frameSlider.setMaximum(self.parent.mmap.shape[0]-1)
         self.frameSlider.setSingleStep(1)
         self.frameSliderLabel = QLabel('Frame [{0}]:'.format(self.frameSlider.value()))
         self.frameSlider.valueChanged.connect(self.setFrame)
