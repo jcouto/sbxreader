@@ -33,7 +33,7 @@ def sbx_get_metadata(sbxfilename):
         nchannels = info.chan.nchan
     else: # scanbox < 3
         nchannels = 1
-        if info['channels'] == 1:
+        if info.channels == 1:
             nchannels = 2
     nplanes = 1
     etl_pos = []
