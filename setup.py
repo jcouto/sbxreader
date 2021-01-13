@@ -6,15 +6,30 @@ from os.path import join as pjoin
 from setuptools import setup
 from setuptools.command.install import install
 
-with open("README.md", "r") as fh:
-    longdescription = fh.read()
+
+#
+longdescription = """
+
+# sbxreader
+
+Python module to read Neurolabware Scanbox files.
+
+[see instructions here](https://bitbucket.org/jpcouto/labcams)
+
+Check the git repository for [examples](https://github.com/jcouto/sbxreader.git).
+ ``pip install sbxreader``
+
+
+Source code is in [the repository](https://github.com/jcouto/sbxreader.git)
+
+"""
 
 setup(
     name = 'sbxreader',
-    version = '0.1.0',
+    version = '0.1.1',
     author = 'Joao Couto',
     author_email = 'jpcouto@gmail.com',
-    description = (longdescription),
+    description = "Python module to read Neurolabware Scanbox files.",
     long_description = longdescription,
     license = 'GPL',
     install_requires = ['scipy'],

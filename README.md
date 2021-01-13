@@ -21,7 +21,6 @@ print(dat.metadata)
 
 # number of invalid columns when recording in bidirectional mode
 print(dat.ndeadcols)
-
 ```
 
 ### Get metadata from the file
