@@ -16,7 +16,7 @@ def sbx_get_info(sbxfile):
     '''
     matfile = os.path.splitext(sbxfile)[0] + '.mat'
     if not os.path.exists(matfile):
-        raise('Scanbox metadata file not found: {0}'.format(matfile))
+        raise(OSError('Scanbox metadata file not found: {0}'.format(matfile)))
     info = loadmat(matfile,squeeze_me=True,struct_as_record=False)
     return info['info']
 
