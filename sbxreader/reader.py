@@ -63,7 +63,6 @@ def sbx_get_metadata(sbxfilename):
     else: # this will be supported later
         um_per_pixel_x = np.nan
         um_per_pixel_y = np.nan
-    
     meta = dict(scanning_mode=SCAN_MODE[info.scanmode],
                 num_frames = nframes,
                 num_channels = nchannels,
@@ -83,7 +82,16 @@ def sbx_get_metadata(sbxfilename):
                 magnification = float(info.config.magnification_list[magidx]),
                 um_per_pixel_x = um_per_pixel_x,
                 um_per_pixel_y = um_per_pixel_x,
-                objective = info.objective)    
+                objective = info.objective)
+    if hasattr(info,'messages'):
+        meta['messages'] = info.messages
+    if hasattr(info,'event_id'):
+        meta['event_id'] = info.event_id
+    if hasattr(info,'usernotes'):
+        meta['usernotes'] = info.usernotes
+    if hasattr(info,'ballmotion'):
+        meta['ballmotion'] = info.usernotes
+    print(meta)
     return meta
 
 class sbx_memmap(np.memmap):

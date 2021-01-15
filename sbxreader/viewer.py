@@ -51,11 +51,11 @@ def registration_upsample(frame,template):
     h,w = frame.shape
     dst = frame.astype('float32')
     (xs, ys), sf = cv2.phaseCorrelate(template.astype('float32'),dst)
-    return (ys,xs)
+    return (xs,ys)
 
 
 def shift_image(img,shift):
-    M = np.float32([[1,0,shift[1]],[0,1,shift[0]]])
+    M = np.float32([[1,0,shift[0]],[0,1,shift[1]]])
     return cv2.warpAffine(img,M,(img.shape[1],img.shape[0]))
 
 
@@ -72,19 +72,22 @@ class ScanboxViewer(QMainWindow):
         nframes,nplanes,nchans,W,H = self.mmap.shape
         self.nplanes = nplanes
         self.nframes = nframes
+        self.levels = np.array([0,np.percentile(np.array(self.mmap[1]),98)])
+        self.levels_frac = np.array([0.,1.])
         self.initUI()
         
     def initUI(self):
         # Menu
-        bar = self.menuBar()
-        editmenu = bar.addMenu("Experiment")
-        editmenu.addAction("New")
+        #bar = self.menuBar()
+        #editmenu = bar.addMenu("Experiment")
+        #editmenu.addAction("New")
         #editmenu.triggered[QAction].connect(self.experimentMenuTrigger)
         self.setWindowTitle("Scanbox viewer")
         self.tabs = []
         self.widgets = []
         self.tabs.append(QDockWidget("Imaging plane",self))
         self.widgets.append(ImageViewerWidget(self,self.mmap))
+
         self.tabs[-1].setWidget(self.widgets[-1])
         self.tabs[-1].setFloating(False)
         #self.tabs[-1].setFixedWidth(self.mmap.shape[3])
@@ -130,10 +133,20 @@ class ControlWidget(QWidget):
         self.register.stateChanged.connect(self.toggleRegister)
         form.addRow(QLabel("Register: "),self.register)
 
+        self.levelSlider = QSlider(Qt.Horizontal)
+        self.levelSlider.setValue(100)
+        self.levelSlider.setMinimum(0)
+        self.levelSlider.setMaximum(100)
+        self.levelSlider.setSingleStep(1)
+        self.levelSlider.valueChanged.connect(self.setLevelMax)
+        form.addRow(QLabel('Level max'), self.levelSlider)
+
     def setFrame(self,value):
         self.frameSliderLabel.setText('Frame [{0}]:'.format(int(value)))
         self.parent.widgets[0].update(int(value))
 
+    def setLevelMax(self,value):
+        self.parent.levels_frac[1] = value/100.
     def setPlane(self,value):
         iPlane = self.planeSelector.currentIndex()
         self.parent.widgets[0].plane = iPlane
@@ -147,27 +160,25 @@ class ControlWidget(QWidget):
     def toggleRegister(self,value):
         self.parent.widgets[0].register = value
 
-class ImageViewerWidget(QWidget):
+class ImageViewerWidget(pg.GraphicsLayoutWidget):
     def __init__(self,parent,sbxdata,parameters = dict(backgroundSubtract=False)):
         super(ImageViewerWidget,self).__init__()
         self.sbxdata = sbxdata
-        frame = self.sbxdata[0,:,0,:,:].squeeze()
-        self.nplanes = parent.nplanes
+        self.parent = parent
+        frame = np.array(self.sbxdata[0,:,:,:,:])
+        self.nplanes = self.sbxdata.shape[1]
+        self.nchannels = self.sbxdata.shape[2]
         self.string = '# {0}'
         self.stringShift = '# {0} - shift ({1:1.1f},{2:1.1f})'
-        self.setContextMenuPolicy(Qt.ActionsContextMenu)
-        toggleSubtract = QAction("Background subtraction",self)
-        toggleSubtract.triggered.connect(self.toggleSubtract)
-        self.addAction(toggleSubtract)
-        self.win = pg.GraphicsLayoutWidget()
-        grid = QFormLayout()
-        grid.addRow(self.win)
-        self.setLayout(grid)
-        p1 = self.win.addPlot(title="")
+        #self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        #toggleSubtract = QAction("Background subtraction",self)
+        #toggleSubtract.triggered.connect(self.toggleSubtract)
+        #self.addAction(toggleSubtract)
+        p1 = self.addPlot(title="")
         p1.getViewBox().invertY(True)
         p1.hideAxis('left')
         p1.hideAxis('bottom')
-        nplanes,H,W = frame.shape
+        nplanes,nchannels,H,W = frame.shape
         positions = [[int(np.mod(i,2))*W,
                       int(i/2)*H] for i in range(self.nplanes)]
         self.imgview = [pg.ImageItem() for i in range(self.nplanes)]
@@ -179,26 +190,37 @@ class ImageViewerWidget(QWidget):
         
         self.plane = 0
         self.register = False
-        self.references = [None for iplane in range(self.nplanes)]
+        self.references = [[None for ichannel in range(self.nchannels)] for iplane in range(self.nplanes)]
         self.update(0)
         self.show()
+
     def update(self,nframe):
-        stack = np.array(self.sbxdata[nframe,:,0,:,:]).astype(np.float32)
+        stack = np.array(self.sbxdata[nframe,:,:,:,self.sbxdata.ndeadcols:]).astype(np.float32)
         if self.register:
             for iplane in range(self.nplanes):
-                if self.references[iplane] is None:
-                    self.references[iplane] = 2**16 - np.squeeze(
-                        self.sbxdata[:256,iplane,0,:,:].mean(axis = 0))
-                shift = registration_upsample(
-                    self.references[iplane][200:-200:2,200:-200:1],
-                    stack[iplane][200:-200:2,200:-200:1])
-                stack[iplane] = shift_image(stack[iplane],shift)
+                for ichannel in range(self.nchannels):
+                    if self.references[iplane][ichannel] is None:
+                        self.references[iplane][ichannel] = np.squeeze(
+                            np.array(self.sbxdata[:256,iplane,ichannel,:,self.sbxdata.ndeadcols:]).mean(axis = 0)).squeeze()
+                    shift = registration_upsample(self.references[iplane][ichannel][100:-100,100:-100],
+                    stack[iplane][ichannel][100:-100,100:-100])
+                    stack[iplane][ichannel] = shift_image(stack[iplane][ichannel],shift)
                 if iplane == 0:
-                    # set the shift value 
+                    # set the shift value for text
                     pass
-            
+        
         for iplane in range(self.nplanes):
-            self.imgview[iplane].setImage(stack[iplane])
+            img = np.squeeze(stack[iplane])
+            levels = self.parent.levels_frac*np.array([0,2**16])
+            if self.nchannels > 1:
+                img = np.zeros([stack.shape[2],stack.shape[3],3],dtype = np.uint8)
+                img[:,:,0] = 255*stack[iplane][1]/(2**16-1) #R
+                img[:,:,1] = 255*stack[iplane][0]/(2**16-1) #G
+                if self.nchannels > 2:
+                    img[:,:,2] = 255*stack[iplane][2]/(2**16-1) #B
+                levels = self.parent.levels_frac*np.array([0,255])
+
+            self.imgview[iplane].setImage(img,autoLevels = False,levels=levels)
         self.lastnFrame = nframe
     def toggleSubtract(self):
         pass
