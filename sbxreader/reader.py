@@ -63,7 +63,10 @@ def sbx_get_metadata(sbxfilename):
     else: # this will be supported later
         um_per_pixel_x = np.nan
         um_per_pixel_y = np.nan
+    factor = 2 if info.scanmode == 0 else 1
+    fs = factor*(info.resfreq/info.config.lines)/float(nplanes)
     meta = dict(scanning_mode=SCAN_MODE[info.scanmode],
+                sampling_rate = fs, # sampling rate per plane
                 num_frames = nframes,
                 num_channels = nchannels,
                 num_planes = nplanes,
