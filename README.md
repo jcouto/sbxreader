@@ -31,6 +31,8 @@ From the command line (not the python terminal) do:
 
 ``sbxviewer <filename>``
 
+![](sbxviewer_example.gif)
+
 This requires additional dependencies: ``opencv-python`` ``PyQt5`` and ``pyqtgraph``
 The dependencies are installed using ``pip`` if not present.
 
