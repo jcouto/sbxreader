@@ -94,7 +94,6 @@ def sbx_get_metadata(sbxfilename):
         meta['usernotes'] = info.usernotes
     if hasattr(info,'ballmotion'):
         meta['ballmotion'] = info.usernotes
-    print(meta)
     return meta
 
 class sbx_memmap(np.memmap):
@@ -105,7 +104,7 @@ class sbx_memmap(np.memmap):
         data = sbx_memmap(filename)
 
         Data are returned as a memory mapped ndarray,
- format is NFRAMES x NPLANES x NCHANNELS x NCOLS x NROWS.
+        format is NFRAMES x NPLANES x NCHANNELS x NCOLS x NROWS.
 
         To load the first 20 frames to memory: np.array(data[:20])
         The average of the first 20 frames np.array(np.mean(data[:20],axis=0))
