@@ -86,6 +86,9 @@ def sbx_get_metadata(sbxfilename):
                 um_per_pixel_x = um_per_pixel_x,
                 um_per_pixel_y = um_per_pixel_x,
                 objective = info.objective)
+    for i in range(4):
+        if hasattr(info.config,f'pmt{i}_gain'):
+            meta[f'pmt{i}_gain'] = getattr(info.config,f'pmt{i}_gain')
     if hasattr(info,'messages'):
         meta['messages'] = info.messages
     if hasattr(info,'event_id'):
