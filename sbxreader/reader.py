@@ -60,11 +60,16 @@ def sbx_get_metadata(sbxfilename):
     if info.scanbox_version <3:
         um_per_pixel_x = info.calibration[magidx].x
         um_per_pixel_y = info.calibration[magidx].y
-    else: # this will be supported later
+    elif hasattr(info,"dycal") and hasattr(info,"dxcal"):
+        um_per_pixel_x = info.dxcal
+        um_per_pixel_y = info.dycal
+    else: # unknown ratio
         um_per_pixel_x = np.nan
         um_per_pixel_y = np.nan
     factor = 2 if info.scanmode == 0 else 1
     fs = factor*(info.resfreq/info.config.lines)/float(nplanes)
+    if hasattr(info,'datetime'):
+        timestamp = info.datetime
     meta = dict(scanning_mode=SCAN_MODE[info.scanmode],
                 frame_rate = fs, # sampling rate per plane
                 num_frames = nframes,
