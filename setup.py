@@ -23,7 +23,7 @@ Source code is in [the repository](https://github.com/jcouto/sbxreader.git)
 
 setup(
     name = 'sbxreader',
-    version = '0.1.6a',
+    version = '0.1.6-1',
     author = 'Joao Couto',
     author_email = 'jpcouto@gmail.com',
     description = "Python module to read Neurolabware Scanbox files.",
