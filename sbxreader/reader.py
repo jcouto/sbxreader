@@ -165,8 +165,8 @@ class sbx_memmap(np.memmap):
         nelements = np.int64(np.prod(s))
         offset = offset_frame*np.int64(np.prod(s[:-1]))
         nbytes = np.uint64(2) # 2 bytes in uint16
-        self._mmap.seek(nbytes*offset,0)
-        arr = self._mmap.read(nbytes*nelements)
+        self._mmap.seek(int(nbytes*offset),0)
+        arr = self._mmap.read(int(nbytes*nelements))
         arr = UINTMAX - np.frombuffer(arr, dtype='uint16').reshape(s,order = 'F')
         return arr.transpose([4,3,0,2,1])
 
