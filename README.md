@@ -23,6 +23,9 @@ print(dat.metadata)
 # number of invalid columns when recording in bidirectional mode
 print(dat.ndeadcols)
 ```
+**Note:** that ``np.array(dat[:])`` is important to have the data properly formatted; ``dat[:]`` is the inverted dataset. This is because of how the dataset is saved.
+
+**Important** you can also use ``dat.get_stack(nframes, offset_frame)`` to load data. This may be faster but on windows the offset_frame needs to be incremented sequentially otherwise there is a limit to the number of frames that can be read. 
 
 ### Command line tool
 
