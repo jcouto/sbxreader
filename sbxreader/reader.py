@@ -51,7 +51,7 @@ def sbx_get_metadata(sbxfilename):
                 nplanes = 1
     nrows,ncols = info.sz
     if os.path.exists(sbxfilename):
-        max_frames = int(os.path.getsize(sbxfilename)/nrows/ncols/nchannels/2)
+        max_frames = np.uint64(os.path.getsize(sbxfilename)/nrows/ncols/nchannels/2)
     else:
         print("Scanbox file {0} not found.".format(sbxfilename))
         max_frames = 0
@@ -181,7 +181,6 @@ class sbx_memmap(np.memmap):
         nelements = np.prod(s)
         if self.offset_frame is None or not self.offset_frame == offset_frame:
             # can't seek all the time in windows because of overflow
-            print('Doing seek {0},{1} '.format(self.offset_frame,offset_frame))
             self.offset_frame = offset_frame
             offset = offset_frame*np.prod(s[:-1])
             self._mmap.seek(np.uint64(nbytes*offset),0)

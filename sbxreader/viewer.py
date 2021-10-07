@@ -1,19 +1,12 @@
 import sys
 import os
-import numpy as np
+from  .reg import *
+
 import time
 import atexit
 import argparse
 from glob import glob
 from time import sleep
-
-try:
-    import cv2
-except Exception as err:
-    print('cv2 not installed, trying to install dependencies with pip ')
-    from subprocess import call
-    call('pip install opencv-python pyqtgraph pyqt5',shell = True)
-    import cv2
 
 import pyqtgraph as pg
 pg.setConfigOptions(imageAxisOrder='row-major')
@@ -47,16 +40,6 @@ from PyQt5.QtWidgets import (QWidget,
 from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor
 from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
-def registration_upsample(frame,template):
-    h,w = frame.shape
-    dst = frame.astype('float32')
-    (xs, ys), sf = cv2.phaseCorrelate(template.astype('float32'),dst)
-    return (xs,ys)
-
-
-def shift_image(img,shift):
-    M = np.float32([[1,0,shift[0]],[0,1,shift[1]]])
-    return cv2.warpAffine(img,M,(img.shape[1],img.shape[0]))
 
 
 from .reader import sbx_memmap
@@ -78,20 +61,14 @@ class ScanboxViewer(QMainWindow):
         
     def initUI(self):
         # Menu
-        #bar = self.menuBar()
-        #editmenu = bar.addMenu("Experiment")
-        #editmenu.addAction("New")
-        #editmenu.triggered[QAction].connect(self.experimentMenuTrigger)
         self.setWindowTitle("Scanbox viewer")
         self.tabs = []
         self.widgets = []
-        self.tabs.append(QDockWidget("Imaging plane",self))
+        self.tabs.append(QDockWidget("Frames",self))
         self.widgets.append(ImageViewerWidget(self,self.mmap))
 
         self.tabs[-1].setWidget(self.widgets[-1])
         self.tabs[-1].setFloating(False)
-        #self.tabs[-1].setFixedWidth(self.mmap.shape[3])
-        #self.tabs[-1].setFixedHeight(self.mmap.shape[4])
         self.addDockWidget(
             Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
             self.tabs[-1])
@@ -106,8 +83,10 @@ class ScanboxViewer(QMainWindow):
         self.timer.start(0.01)
         self.move(0, 0)
         self.show()
+
     def timerUpdate(self):
-        self.controlWidget.frameSlider.setValue(np.mod(self.controlWidget.frameSlider.value() + 1,self.nframes))
+        self.controlWidget.frameSlider.setValue(np.mod(
+            self.controlWidget.frameSlider.value() + 1,self.nframes))
 
 class ControlWidget(QWidget):
     def __init__(self,parent):
@@ -170,10 +149,6 @@ class ImageViewerWidget(pg.GraphicsLayoutWidget):
         self.nchannels = self.sbxdata.shape[2]
         self.string = '# {0}'
         self.stringShift = '# {0} - shift ({1:1.1f},{2:1.1f})'
-        #self.setContextMenuPolicy(Qt.ActionsContextMenu)
-        #toggleSubtract = QAction("Background subtraction",self)
-        #toggleSubtract.triggered.connect(self.toggleSubtract)
-        #self.addAction(toggleSubtract)
         p1 = self.addPlot(title="")
         p1.getViewBox().invertY(True)
         p1.hideAxis('left')
@@ -201,7 +176,12 @@ class ImageViewerWidget(pg.GraphicsLayoutWidget):
                 for ichannel in range(self.nchannels):
                     if self.references[iplane][ichannel] is None:
                         self.references[iplane][ichannel] = np.squeeze(
-                            np.array(self.sbxdata[:256,iplane,ichannel,:,self.sbxdata.ndeadcols:]).mean(axis = 0)).squeeze()
+                            np.array(
+                                self.sbxdata[:256,
+                                             iplane,
+                                             ichannel,
+                                             :,
+                                             self.sbxdata.ndeadcols:]).mean(axis = 0)).squeeze()
                     shift = registration_upsample(self.references[iplane][ichannel][100:-100,100:-100],
                     stack[iplane][ichannel][100:-100,100:-100])
                     stack[iplane][ichannel] = shift_image(stack[iplane][ichannel],shift)
