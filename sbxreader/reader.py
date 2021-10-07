@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 SCAN_MODE ={0:'bidirectional',
-           1:'unidirectional'}
+            1:'unidirectional'}
 UINTMAX = np.uint16(65535)
 
 
@@ -134,6 +134,7 @@ class sbx_memmap(np.memmap):
                          order='F')
         self = self.transpose([4,3,0,2,1])
         self.estimate_deadcols() # estimate the number of columns that are invalid in bidirectional mode because of the digitizer.
+        self.offset_frame = None
         return self
     
     def __getitem__(self, index):
@@ -160,24 +161,33 @@ class sbx_memmap(np.memmap):
         # This does not work if the PMT was completely saturated.
         # Lets hope that never happens.
             
-    def get_stack(self,offset_frame=0, nframes=100):
+    def get_stack(self,nframes=100, offset_frame=None):
         '''
         Get a block of data (this can be faster than using memmap)
 
         '''
+        if offset_frame is None:
+            if self.offset_frame is None:
+                offset_frame = 0
+            else:
+                offset_frame = self.offset_frame
+        nbytes = 2 # 2 bytes in uint16
         s = self.shape
         if nframes == -1:
             nframes = s[-1] - offset_frame
-        if nframes+offset_frame > s[0]:
+        if nframes+offset_frame > s[0]: # clips the size
             nframes = s[0]-offset_frame
         s = [s[2],s[4],s[3],s[1],nframes]
-        nelements = np.int64(np.prod(s))
-        offset = np.uint64(offset_frame*np.prod(s[:-1]))
-        nbytes = np.uint64(2) # 2 bytes in uint16
-        self._mmap.seek(int(nbytes*offset),0)
-        arr = self._mmap.read(int(nbytes*nelements))
-        arr = UINTMAX - np.frombuffer(arr, dtype='uint16').reshape(
-            s,
+        nelements = np.prod(s)
+        if self.offset_frame is None or not self.offset_frame == offset_frame:
+            # can't seek all the time in windows because of overflow
+            print('Doing seek {0},{1} '.format(self.offset_frame,offset_frame))
+            self.offset_frame = offset_frame
+            offset = offset_frame*np.prod(s[:-1])
+            self._mmap.seek(np.uint64(nbytes*offset),0)
+        arr = self._mmap.read(np.uint64(nbytes*nelements))
+        self.offset_frame += nframes
+        arr = UINTMAX - np.frombuffer(arr, dtype='uint16').reshape(s,
             order = 'F')
         return arr.transpose([4,3,0,2,1])
 
