@@ -135,12 +135,19 @@ class sbx_memmap(np.memmap):
         self = self.transpose([4,3,0,2,1])
         self.estimate_deadcols() # estimate the number of columns that are invalid in bidirectional mode because of the digitizer.
         return self
+    
     def __getitem__(self, index):
         res = super(sbx_memmap, self).__getitem__(index)
         if type(res) is np.memmap and res._mmap is None:
             return UINTMAX - res.view(type=ndarray)
         return UINTMAX - res
 
+    def to_numpy(self):
+        '''
+        Reads the entire dataset into memory as a numpy array
+        '''
+        return self.get_stack(offset_frame = 0,nframes = self.shape[0])
+        
     def estimate_deadcols(self):
         '''
         Estimates the number of deadcolumns if recording in bidirectional mode.
@@ -149,7 +156,9 @@ class sbx_memmap(np.memmap):
         self.ndeadcols = 0
         if self.metadata['scanning_mode'] == 'bidirectional':
             colprofile = np.array(np.mean(self[0,0,0],axis=0))
-            self.ndeadcols = np.argmin(np.diff(colprofile)) + 1 # this does not work if the PMT was completely saturated. Lets hope that never happens.
+            self.ndeadcols = np.argmin(np.diff(colprofile)) + 1
+        # This does not work if the PMT was completely saturated.
+        # Lets hope that never happens.
             
     def get_stack(self,offset_frame=0, nframes=100):
         '''
@@ -163,11 +172,13 @@ class sbx_memmap(np.memmap):
             nframes = s[0]-offset_frame
         s = [s[2],s[4],s[3],s[1],nframes]
         nelements = np.int64(np.prod(s))
-        offset = offset_frame*np.int64(np.prod(s[:-1]))
+        offset = np.uint64(offset_frame*np.prod(s[:-1]))
         nbytes = np.uint64(2) # 2 bytes in uint16
-        self._mmap.seek(nbytes*offset,0)
-        arr = self._mmap.read(nbytes*nelements)
-        arr = UINTMAX - np.frombuffer(arr, dtype='uint16').reshape(s,order = 'F')
+        self._mmap.seek(int(nbytes*offset),0)
+        arr = self._mmap.read(int(nbytes*nelements))
+        arr = UINTMAX - np.frombuffer(arr, dtype='uint16').reshape(
+            s,
+            order = 'F')
         return arr.transpose([4,3,0,2,1])
 
         
