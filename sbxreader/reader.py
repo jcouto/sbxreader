@@ -98,6 +98,12 @@ def sbx_get_metadata(sbxfilename):
         meta['messages'] = info.messages
     if hasattr(info,'event_id'):
         meta['event_id'] = info.event_id
+    if hasattr(info,'frame'):
+        meta['event_frame'] = info.frame
+    if hasattr(info,'line'):
+        meta['event_line'] = info.line
+    if hasattr(info,'messages'):
+        meta['messages'] = info.messages
     if hasattr(info,'usernotes'):
         meta['usernotes'] = info.usernotes
     if hasattr(info,'ballmotion'):
