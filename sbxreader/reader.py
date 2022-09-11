@@ -57,7 +57,7 @@ def sbx_get_metadata(sbxfilename):
         max_frames = 0
     nframes = int(max_frames/nplanes)
     magidx = info.config.magnification - 1
-    if info.scanbox_version <3:
+    if float(info.scanbox_version) < 3:
         um_per_pixel_x = info.calibration[magidx].x
         um_per_pixel_y = info.calibration[magidx].y
     elif hasattr(info,"dycal") and hasattr(info,"dxcal"):
