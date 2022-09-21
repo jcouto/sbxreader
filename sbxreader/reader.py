@@ -138,7 +138,8 @@ class sbx_memmap(np.memmap):
         self = super(sbx_memmap,self).__new__(self,filename,
                          dtype='uint16',
                          shape=sbxshape,
-                         order='F')
+                         order='F',
+                         mode='r')
         self = self.transpose([4,3,0,2,1])
         self.estimate_deadcols() # estimate the number of columns that are invalid in bidirectional mode because of the digitizer.
         self.offset_frame = None
